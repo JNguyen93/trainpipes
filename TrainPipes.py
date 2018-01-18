@@ -17,10 +17,12 @@ CELLHEIGHT = int(WINDOWHEIGHT / CELLSIZE)
 #             R    G    B
 WHITE     = (255, 255, 255)
 BLACK     = (  0,   0,   0)
-RED       = (255,   0,   0)
-GREEN     = (  0, 255,   0)
+RED       = (237,  31,  36)
+GREEN     = (106, 189,  69)
 DARKGREEN = (  0, 155,   0)
 DARKGRAY  = ( 40,  40,  40)
+BLUE      = (126, 149, 204)
+ORANGE    = (246, 139,  31)
 BGCOLOR = BLACK
 
 UP = 'up'
@@ -101,6 +103,7 @@ def runGame():
             newHead = {'x': wormCoords[HEAD]['x'] + 1, 'y': wormCoords[HEAD]['y']}
         wormCoords.insert(0, newHead)
         DISPLAYSURF.blit(bgimg, (0, 0))
+        drawCircles()
         drawGrid()
         drawWorm(wormCoords)
         drawApple(apple)
@@ -218,6 +221,28 @@ def drawGrid():
         pygame.draw.line(DISPLAYSURF, DARKGRAY, (x, 0), (x, WINDOWHEIGHT))
     for y in range(0, WINDOWHEIGHT, CELLSIZE): # draw horizontal lines
         pygame.draw.line(DISPLAYSURF, DARKGRAY, (0, y), (WINDOWWIDTH, y))
+
+def drawCircles():
+    rad = 16
+    blue0 = Circle(BLUE, (int((3.5 * CELLSIZE)), int((1.5 * CELLSIZE))), rad)
+    blue1 = Circle(BLUE, (int((15 * CELLSIZE)), int((13.5 * CELLSIZE))), rad)
+    pygame.draw.circle(DISPLAYSURF, blue0.getColor(), blue0.getPos(), int(blue0.getRadius()), 0)
+    pygame.draw.circle(DISPLAYSURF, blue1.getColor(), blue1.getPos(), int(blue1.getRadius()), 0)
+
+    green0 = Circle(GREEN, (int((6.5 * CELLSIZE)), int((5 * CELLSIZE))), rad)
+    green1 = Circle(GREEN, (int((10 * CELLSIZE)), int((18.5 * CELLSIZE))), rad)
+    pygame.draw.circle(DISPLAYSURF, green0.getColor(), green0.getPos(), int(green0.getRadius()), 0)
+    pygame.draw.circle(DISPLAYSURF, green1.getColor(), green1.getPos(), int(green1.getRadius()), 0)
+
+    red0 = Circle(RED, (int((13 * CELLSIZE)), int((5 * CELLSIZE))), rad)
+    red1 = Circle(RED, (int((5 * CELLSIZE)), int((15 * CELLSIZE))), rad)
+    pygame.draw.circle(DISPLAYSURF, red0.getColor(), red0.getPos(), int(red0.getRadius()), 0)
+    pygame.draw.circle(DISPLAYSURF, red1.getColor(), red1.getPos(), int(red1.getRadius()), 0)
+
+    orange0 = Circle(ORANGE, (int((12 * CELLSIZE)), int((9 * CELLSIZE))), rad)
+    orange1 = Circle(ORANGE, (int((18.5 * CELLSIZE)), int((5 * CELLSIZE))), rad)
+    pygame.draw.circle(DISPLAYSURF, orange0.getColor(), orange0.getPos(), int(orange0.getRadius()), 0)
+    pygame.draw.circle(DISPLAYSURF, orange1.getColor(), orange1.getPos(), int(orange1.getRadius()), 0)
 
 class Circle:
     
