@@ -2,7 +2,7 @@
 # By Justin Nguyen
 # For use by Project Panic
 
-import random, pygame, sys
+import random, pygame, sys, math
 from pygame.locals import *
 
 FPS = 15
@@ -20,7 +20,8 @@ BLACK     = (  0,   0,   0)
 RED       = (237,  31,  36)
 GREEN     = (106, 189,  69)
 DARKGREEN = (  0, 155,   0)
-DARKGRAY  = ( 40,  40,  40)
+DARKGRAY  = ( 40,  40, 40)
+GRAY      = (169, 168, 168)
 BLUE      = (126, 149, 204)
 ORANGE    = (246, 139,  31)
 BGCOLOR = BLACK
@@ -34,38 +35,56 @@ HEAD = 0 # syntactic sugar: index of the worm's head
 
 bg = "TrainPipes.png"
 bgimg = pygame.image.load(bg)
+wList = None
+cList = []
 
 def main():
-    global FPSCLOCK, DISPLAYSURF, BASICFONT
+    global FPSCLOCK, DISPLAYSURF, BASICFONT, cList
 
     pygame.init()
     FPSCLOCK = pygame.time.Clock()
     DISPLAYSURF = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
     BASICFONT = pygame.font.Font('freesansbold.ttf', 18)
-    pygame.display.set_caption('Wormy')
+    pygame.display.set_caption('TrainPipes')
 
-    showStartScreen()
+    #showStartScreen()
     while True:
         runGame()
-        showGameOverScreen()
+        #showGameOverScreen()
 
 
 def runGame():
-    # Set a random start point.
-    startx = random.randint(5, CELLWIDTH - 6)
-    starty = random.randint(5, CELLHEIGHT - 6)
-    wormCoords = [{'x': startx,     'y': starty},
-                  {'x': startx - 1, 'y': starty},
-                  {'x': startx - 2, 'y': starty}]
-    direction = RIGHT
-
-    # Start the apple in a random place.
-    apple = getRandomLocation()
+##    # Set a random start point.
+##    startx = random.randint(5, CELLWIDTH - 6)
+##    starty = random.randint(5, CELLHEIGHT - 6)
+##    wormCoords = [{'x': startx,     'y': starty},
+##                  {'x': startx - 1, 'y': starty},
+##                  {'x': startx - 2, 'y': starty}]
+##    direction = RIGHT
+##
+##    # Start the apple in a random place.
+##    apple = getRandomLocation()
 
     while True: # main game loop
         for event in pygame.event.get(): # event handling loop
             if event.type == QUIT:
                 terminate()
+            elif event.type == MOUSEMOTION and pygame.mouse.get_pressed()[0] == 1:
+                mousex, mousey = event.pos
+                for wall in wList:
+                    if wall.checkCollision(event.pos) == 1:
+                        print('DETECTED!')
+                        break
+            elif event.type == MOUSEBUTTONDOWN:		
+                mousex, mousey = event.pos
+                for circle in cList:
+                    if circle.checkCollision(mousex, mousey) is True:
+                        print('TRUE')
+                mouseClicked = True
+            elif event.type == MOUSEBUTTONUP:
+                print('Chain Placeholder')
+            elif event.type == KEYUP and event.key == K_j:
+                cheatFlag = True
             elif event.type == KEYDOWN:
                 if (event.key == K_LEFT or event.key == K_a) and direction != RIGHT:
                     direction = LEFT
@@ -78,36 +97,37 @@ def runGame():
                 elif event.key == K_ESCAPE:
                     terminate()
 
-        # check if the worm has hit itself or the edge
-        if wormCoords[HEAD]['x'] == -1 or wormCoords[HEAD]['x'] == CELLWIDTH or wormCoords[HEAD]['y'] == -1 or wormCoords[HEAD]['y'] == CELLHEIGHT:
-            return # game over
-        for wormBody in wormCoords[1:]:
-            if wormBody['x'] == wormCoords[HEAD]['x'] and wormBody['y'] == wormCoords[HEAD]['y']:
-                return # game over
-
-        # check if worm has eaten an apply
-        if wormCoords[HEAD]['x'] == apple['x'] and wormCoords[HEAD]['y'] == apple['y']:
-            # don't remove worm's tail segment
-            apple = getRandomLocation() # set a new apple somewhere
-        else:
-            del wormCoords[-1] # remove worm's tail segment
-
-        # move the worm by adding a segment in the direction it is moving
-        if direction == UP:
-            newHead = {'x': wormCoords[HEAD]['x'], 'y': wormCoords[HEAD]['y'] - 1}
-        elif direction == DOWN:
-            newHead = {'x': wormCoords[HEAD]['x'], 'y': wormCoords[HEAD]['y'] + 1}
-        elif direction == LEFT:
-            newHead = {'x': wormCoords[HEAD]['x'] - 1, 'y': wormCoords[HEAD]['y']}
-        elif direction == RIGHT:
-            newHead = {'x': wormCoords[HEAD]['x'] + 1, 'y': wormCoords[HEAD]['y']}
-        wormCoords.insert(0, newHead)
+##        # check if the worm has hit itself or the edge
+##        if wormCoords[HEAD]['x'] == -1 or wormCoords[HEAD]['x'] == CELLWIDTH or wormCoords[HEAD]['y'] == -1 or wormCoords[HEAD]['y'] == CELLHEIGHT:
+##            return # game over
+##        for wormBody in wormCoords[1:]:
+##            if wormBody['x'] == wormCoords[HEAD]['x'] and wormBody['y'] == wormCoords[HEAD]['y']:
+##                return # game over
+##
+##        # check if worm has eaten an apple
+##        if wormCoords[HEAD]['x'] == apple['x'] and wormCoords[HEAD]['y'] == apple['y']:
+##            # don't remove worm's tail segment
+##            apple = getRandomLocation() # set a new apple somewhere
+##        else:
+##            del wormCoords[-1] # remove worm's tail segment
+##
+##        # move the worm by adding a segment in the direction it is moving
+##        if direction == UP:
+##            newHead = {'x': wormCoords[HEAD]['x'], 'y': wormCoords[HEAD]['y'] - 1}
+##        elif direction == DOWN:
+##            newHead = {'x': wormCoords[HEAD]['x'], 'y': wormCoords[HEAD]['y'] + 1}
+##        elif direction == LEFT:
+##            newHead = {'x': wormCoords[HEAD]['x'] - 1, 'y': wormCoords[HEAD]['y']}
+##        elif direction == RIGHT:
+##            newHead = {'x': wormCoords[HEAD]['x'] + 1, 'y': wormCoords[HEAD]['y']}
+##        wormCoords.insert(0, newHead)
         DISPLAYSURF.blit(bgimg, (0, 0))
         drawCircles()
+        drawWalls()
         drawGrid()
-        drawWorm(wormCoords)
-        drawApple(apple)
-        drawScore(len(wormCoords) - 3)
+        #drawWorm(wormCoords)
+        #drawApple(apple)
+        #drawScore(len(wormCoords) - 3)
         pygame.display.update()
         FPSCLOCK.tick(FPS)
 
@@ -222,28 +242,207 @@ def drawGrid():
     for y in range(0, WINDOWHEIGHT, CELLSIZE): # draw horizontal lines
         pygame.draw.line(DISPLAYSURF, DARKGRAY, (0, y), (WINDOWWIDTH, y))
 
+def checkWin():
+    for c in cList:
+        if c.isPaired() is False:
+            return False
+        else:
+            return True
+        
 def drawCircles():
+    global cList
+
     rad = 16
     blue0 = Circle(BLUE, (int((3.5 * CELLSIZE)), int((1.5 * CELLSIZE))), rad)
     blue1 = Circle(BLUE, (int((15 * CELLSIZE)), int((13.5 * CELLSIZE))), rad)
-    pygame.draw.circle(DISPLAYSURF, blue0.getColor(), blue0.getPos(), int(blue0.getRadius()), 0)
-    pygame.draw.circle(DISPLAYSURF, blue1.getColor(), blue1.getPos(), int(blue1.getRadius()), 0)
+    blue0.setPair(blue1)
+    blue1.setPair(blue0)
 
     green0 = Circle(GREEN, (int((6.5 * CELLSIZE)), int((5 * CELLSIZE))), rad)
     green1 = Circle(GREEN, (int((10 * CELLSIZE)), int((18.5 * CELLSIZE))), rad)
-    pygame.draw.circle(DISPLAYSURF, green0.getColor(), green0.getPos(), int(green0.getRadius()), 0)
-    pygame.draw.circle(DISPLAYSURF, green1.getColor(), green1.getPos(), int(green1.getRadius()), 0)
+    green0.setPair(green1)
+    green1.setPair(green0)
 
     red0 = Circle(RED, (int((13 * CELLSIZE)), int((5 * CELLSIZE))), rad)
     red1 = Circle(RED, (int((5 * CELLSIZE)), int((15 * CELLSIZE))), rad)
-    pygame.draw.circle(DISPLAYSURF, red0.getColor(), red0.getPos(), int(red0.getRadius()), 0)
-    pygame.draw.circle(DISPLAYSURF, red1.getColor(), red1.getPos(), int(red1.getRadius()), 0)
+    red0.setPair(red1)
+    red1.setPair(red0)
 
     orange0 = Circle(ORANGE, (int((12 * CELLSIZE)), int((9 * CELLSIZE))), rad)
     orange1 = Circle(ORANGE, (int((18.5 * CELLSIZE)), int((5 * CELLSIZE))), rad)
-    pygame.draw.circle(DISPLAYSURF, orange0.getColor(), orange0.getPos(), int(orange0.getRadius()), 0)
-    pygame.draw.circle(DISPLAYSURF, orange1.getColor(), orange1.getPos(), int(orange1.getRadius()), 0)
+    orange0.setPair(orange1)
+    orange1.setPair(orange0)
 
+    cList = [blue0, blue1, green0, green1, red0, red1, orange0, orange1]
+    
+    for c in cList:
+        hitbox = pygame.draw.circle(DISPLAYSURF, c.getColor(), c.getPos(), int(c.getRadius()), 0)
+        c.setHitbox(hitbox)
+        #pygame.draw.rect(DISPLAYSURF, GREEN, c.getHitbox())
+
+def drawWalls():
+    global wList
+
+    #Outer Wall
+    Rect0 = Rect(int((0 * CELLSIZE)), int((0 * CELLSIZE)), int((20 * CELLSIZE)), int((1 * CELLSIZE)))
+    Rect1 = Rect(int((0 * CELLSIZE)), int((1 * CELLSIZE)), int((1 * CELLSIZE)), int((19 * CELLSIZE)))
+    Rect2 = Rect(int((1 * CELLSIZE)), int((19 * CELLSIZE)), int((19 * CELLSIZE)), int((1 * CELLSIZE)))
+    Rect3 = Rect(int((19 * CELLSIZE)), int((1* CELLSIZE)), int((1 * CELLSIZE)), int((18 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3]
+
+    wall0 = Wall(rList)
+
+    #Top Right Side Quadrilateral
+    Rect0 = Rect(int((5 * CELLSIZE)), int((2 * CELLSIZE)), int((4.5 * CELLSIZE)), int((2.5 * CELLSIZE)))
+    Rect1 = Rect(int((3 * CELLSIZE)), int((2 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect2 = Rect(int((3.5 * CELLSIZE)), int((2.5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect3 = Rect(int((4 * CELLSIZE)), int((3 * CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect4 = Rect(int((4.5 * CELLSIZE)), int((3.5* CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3, Rect4]
+
+    wall1 = Wall(rList)
+
+    Rect0 = Rect(int((10.5 * CELLSIZE)), int((2 * CELLSIZE)), int((4.5 * CELLSIZE)), int((2.5 * CELLSIZE)))
+    Rect1 = Rect(int((15 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)), int((2 * CELLSIZE)))
+    Rect2 = Rect(int((15.5 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1.5 * CELLSIZE)))
+    Rect3 = Rect(int((16 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1 * CELLSIZE)))
+    Rect4 = Rect(int((16.5 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3, Rect4]
+
+    wall2 = Wall(rList)
+
+    Rect0 = Rect(int((15.5 * CELLSIZE)), int((5 * CELLSIZE)), int((2.5 * CELLSIZE)), int((4.5 * CELLSIZE)))
+    Rect1 = Rect(int((16 * CELLSIZE)), int((4.5 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect2 = Rect(int((16.5 * CELLSIZE)), int((4 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect3 = Rect(int((17 * CELLSIZE)), int((3.5* CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect4 = Rect(int((17.5 * CELLSIZE)), int((3 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3, Rect4]
+
+    wall3 = Wall(rList)
+
+    Rect0 = Rect(int((15.5 * CELLSIZE)), int((10.5 * CELLSIZE)), int((2.5 * CELLSIZE)), int((4.5 * CELLSIZE)))
+    Rect1 = Rect(int((16 * CELLSIZE)), int((15 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect2 = Rect(int((16.5 * CELLSIZE)), int((15.5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect3 = Rect(int((17 * CELLSIZE)), int((16 * CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect4 = Rect(int((17.5 * CELLSIZE)), int((16.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3, Rect4]
+
+    wall4 = Wall(rList)
+
+    Rect0 = Rect(int((10.5 * CELLSIZE)), int((15.5 * CELLSIZE)), int((4.5 * CELLSIZE)), int((2.5 * CELLSIZE)))
+    Rect1 = Rect(int((15 * CELLSIZE)), int((16 * CELLSIZE)), int((0.5 * CELLSIZE)), int((2 * CELLSIZE)))
+    Rect2 = Rect(int((15.5 * CELLSIZE)), int((16.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1.5 * CELLSIZE)))
+    Rect3 = Rect(int((16 * CELLSIZE)), int((17 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1 * CELLSIZE)))
+    Rect4 = Rect(int((16.5 * CELLSIZE)), int((17.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3, Rect4]
+
+    wall5 = Wall(rList)
+
+    Rect0 = Rect(int((5 * CELLSIZE)), int((15.5 * CELLSIZE)), int((4.5 * CELLSIZE)), int((2.5 * CELLSIZE)))
+    Rect1 = Rect(int((3 * CELLSIZE)), int((17.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect2 = Rect(int((3.5 * CELLSIZE)), int((17 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1 * CELLSIZE)))
+    Rect3 = Rect(int((4 * CELLSIZE)), int((16.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1.5 * CELLSIZE)))
+    Rect4 = Rect(int((4.5 * CELLSIZE)), int((16 * CELLSIZE)), int((0.5 * CELLSIZE)), int((2 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3, Rect4]
+
+    wall6 = Wall(rList)
+    
+    Rect0 = Rect(int((2 * CELLSIZE)), int((10.5 * CELLSIZE)), int((2.5 * CELLSIZE)), int((4.5 * CELLSIZE)))
+    Rect1 = Rect(int((2 * CELLSIZE)), int((15 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect2 = Rect(int((2 * CELLSIZE)), int((15.5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect3 = Rect(int((2 * CELLSIZE)), int((16 * CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect4 = Rect(int((2 * CELLSIZE)), int((16.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3, Rect4]
+
+    wall7 = Wall(rList)
+
+    #Top Left Side Quadrilateral
+    Rect0 = Rect(int((2 * CELLSIZE)), int((5 * CELLSIZE)), int((2.5 * CELLSIZE)), int((4.5 * CELLSIZE)))
+    Rect1 = Rect(int((2 * CELLSIZE)), int((4.5 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect2 = Rect(int((2 * CELLSIZE)), int((4 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect3 = Rect(int((2 * CELLSIZE)), int((3.5 * CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect4 = Rect(int((2 * CELLSIZE)), int((3 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3, Rect4]
+
+    wall8 = Wall(rList)
+
+    #Inner Walls
+
+    Rect0 = Rect(int((8 * CELLSIZE)), int((5.5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((2 * CELLSIZE)))
+    Rect1 = Rect(int((6.5 * CELLSIZE)), int((5.5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect2 = Rect(int((7 * CELLSIZE)), int((6 * CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect3 = Rect(int((7.5 * CELLSIZE)), int((6.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3]
+
+    wall9 = Wall(rList)
+
+    Rect0 = Rect(int((10.5 * CELLSIZE)), int((5.5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((2 * CELLSIZE)))
+    Rect1 = Rect(int((12 * CELLSIZE)), int((5.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1.5 * CELLSIZE)))
+    Rect2 = Rect(int((12.5 * CELLSIZE)), int((5.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1 * CELLSIZE)))
+    Rect3 = Rect(int((13 * CELLSIZE)), int((5.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3]
+
+    wall10 = Wall(rList)
+
+    Rect0 = Rect(int((12.5 * CELLSIZE)), int((8 * CELLSIZE)), int((2 * CELLSIZE)), int((1.5 * CELLSIZE)))
+    Rect1 = Rect(int((13 * CELLSIZE)), int((7.5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect2 = Rect(int((13.5 * CELLSIZE)), int((7 * CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect3 = Rect(int((14 * CELLSIZE)), int((6.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3]
+
+    wall11 = Wall(rList)
+
+    Rect0 = Rect(int((12.5 * CELLSIZE)), int((10.5 * CELLSIZE)), int((2 * CELLSIZE)), int((2 * CELLSIZE)))
+    Rect1 = Rect(int((10.5 * CELLSIZE)), int((12.5 * CELLSIZE)), int((4 * CELLSIZE)), int((2 * CELLSIZE)))
+    rList = [Rect0, Rect1]
+
+    wall12 = Wall(rList)
+
+    Rect0 = Rect(int((8 * CELLSIZE)), int((12.5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((2 * CELLSIZE)))
+    Rect1 = Rect(int((6.5 * CELLSIZE)), int((14 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect2 = Rect(int((7 * CELLSIZE)), int((13.5 * CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect3 = Rect(int((7.5 * CELLSIZE)), int((13 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3]
+    
+    wall13 = Wall(rList)
+
+    Rect0 = Rect(int((5.5 * CELLSIZE)), int((10.5 * CELLSIZE)), int((2 * CELLSIZE)), int((1.5 * CELLSIZE)))
+    Rect1 = Rect(int((5.5 * CELLSIZE)), int((12 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect2 = Rect(int((5.5 * CELLSIZE)), int((12.5 * CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect3 = Rect(int((5.5 * CELLSIZE)), int((13 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3]
+
+    wall14 = Wall(rList)
+    
+    Rect0 = Rect(int((5.5 * CELLSIZE)), int((8 * CELLSIZE)), int((2 * CELLSIZE)), int((1.5 * CELLSIZE)))
+    Rect1 = Rect(int((5.5 * CELLSIZE)), int((6.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect2 = Rect(int((5.5 * CELLSIZE)), int((7 * CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect3 = Rect(int((5.5 * CELLSIZE)), int((7.5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3]
+    
+    wall15 = Wall(rList)
+
+    #Inner Inner Walls
+    Rect0 = Rect(int((8.5 * CELLSIZE)), int((8.5 * CELLSIZE)), int((1 * CELLSIZE)), int((3 * CELLSIZE)))
+    rList = [Rect0]
+
+    wall16 = Wall(rList)
+
+    Rect0 = Rect(int((10.5 * CELLSIZE)), int((8.5 * CELLSIZE)), int((1 * CELLSIZE)), int((1 * CELLSIZE)))
+    rList = [Rect0]
+
+    wall17 = Wall(rList)
+
+    Rect0 = Rect(int((10.5 * CELLSIZE)), int((10.5 * CELLSIZE)), int((1 * CELLSIZE)), int((1 * CELLSIZE)))
+    rList = [Rect0]
+
+    wall18 = Wall(rList)
+
+    wList = [wall0, wall1, wall2, wall3, wall4, wall5, wall6, wall7, wall8, wall9, wall10, wall11, wall12, wall13, wall14, wall15, wall16, wall17, wall18]
+
+    for wall in wList:
+        wall.drawWalls()
+    
 class Circle:
     
     def __init__(self, color, pos, radius):
@@ -251,15 +450,100 @@ class Circle:
         self.radius = radius
         self.color = color
         self.connected = False
+        self.hitbox = None
+        self.chain = []
+        self.pair = None
+        self.paired = False
+
+    def setPaired(self, boolean):
+        self.paired = boolean
+
+    def isPaired(self):
+        return self.paired
+    
+    def setPair(self, circle):
+        self.pair = circle
+
+    def getPair(self):
+        return self.pair
     
     def getPos(self):
         return self.pos
+
+    def getX(self):
+        return self.pos[0]
+
+    def getY(self):
+        return self.pos[1]
 
     def getRadius(self):
         return self.radius
 
     def getColor(self):
         return self.color
+
+    def setHitbox(self, rect):
+        self.hitbox = rect
+
+    def getHitbox(self):
+        return self.hitbox
+        
+    def checkMatch(self, circle):
+        if self.getPair() == circle.getPair():
+            self.setPaired(True)
+            circle.setPaired(True)
+            return True
+        else:
+            return False
+        
+    def checkCollision(self, mousex, mousey):
+        x = mousex
+        y = mousey
+
+        sqx = (x - self.pos[0])**2
+        sqy = (y - self.pos[1])**2
+
+        if math.sqrt(sqx + sqy) < self.radius:
+            return True
+        else:
+            return False
+
+class Wall:
+    
+    def __init__(self, rList):
+        self.rectList = rList
+
+    def drawWalls(self):
+        for rect in self.rectList:
+            pygame.draw.rect(DISPLAYSURF, RED, rect)
+
+    def checkCollision(self, pos):
+        for rect in self.rectList:
+            if rect.collidepoint(pos) == 1:
+                return True
+        return False
+
+class Chain:
+
+    def __init__(self, start):
+        self.start = start
+        self.locked = False
+        self.end = None
+        self.links = []
+
+    def addLink(self, pos):
+        for wall in wList:
+            if wall.checkCollision(pos) == 1:
+                return
+        for circle in cList:
+            if circle.checkCollision(pos) == 1:
+               if self.checkMatch(circle) == 1:
+                   
+                
+        if pos[0] % 20 == 0 and pos[1] % 20 == 0:
+            link = Circle(self.color, pos, self.radius)
+            self.chain.append(link)
+            pygame.draw.circle(DISPLAYSURF, link.getColor(), link.getPos(), link.getRadius())
     
 if __name__ == '__main__':
     main()
