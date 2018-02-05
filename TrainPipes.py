@@ -20,7 +20,7 @@ BLACK     = (  0,   0,   0)
 RED       = (237,  31,  36)
 GREEN     = (106, 189,  69)
 DARKGREEN = (  0, 155,   0)
-DARKGRAY  = ( 40,  40, 40)
+DARKGRAY  = ( 40,  40,  40)
 GRAY      = (169, 168, 168)
 BLUE      = (126, 149, 204)
 ORANGE    = (246, 139,  31)
@@ -37,6 +37,10 @@ bg = "TrainPipes.png"
 bgimg = pygame.image.load(bg)
 wList = None
 cList = []
+chainList = []
+pointList = []
+coordinates = []
+activeChain = None
 
 def main():
     global FPSCLOCK, DISPLAYSURF, BASICFONT, cList
@@ -46,7 +50,9 @@ def main():
     DISPLAYSURF = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
     BASICFONT = pygame.font.Font('freesansbold.ttf', 18)
     pygame.display.set_caption('TrainPipes')
-
+    drawWalls()
+    findPoints()
+    updateScreen()
     #showStartScreen()
     while True:
         runGame()
@@ -54,48 +60,78 @@ def main():
 
 
 def runGame():
-##    # Set a random start point.
-##    startx = random.randint(5, CELLWIDTH - 6)
-##    starty = random.randint(5, CELLHEIGHT - 6)
-##    wormCoords = [{'x': startx,     'y': starty},
-##                  {'x': startx - 1, 'y': starty},
-##                  {'x': startx - 2, 'y': starty}]
-##    direction = RIGHT
-##
-##    # Start the apple in a random place.
-##    apple = getRandomLocation()
+    global activeChain, wList, cList, chainList, pointList
 
     while True: # main game loop
         for event in pygame.event.get(): # event handling loop
             if event.type == QUIT:
                 terminate()
+                
             elif event.type == MOUSEMOTION and pygame.mouse.get_pressed()[0] == 1:
                 mousex, mousey = event.pos
-                for wall in wList:
-                    if wall.checkCollision(event.pos) == 1:
-                        print('DETECTED!')
-                        break
+                if activeChain is not None:
+                    if activeChain.getPreviousLink() is not None:
+                        if activeChain.getPreviousLink().checkCollision(event.pos) == 1:
+                            lastLink = activeChain.getLinks().pop()
+                            if lastLink is activeChain.getCurrentLink():
+                                print('Removing Current Link...')
+                                activeChain.setCurrentLink(activeChain.getPreviousLink())
+                                index = activeChain.getLinks().index(activeChain.getCurrentLink())
+                                if (index - 1) >= 0:
+                                    activeChain.setPreviousLink(activeChain.getLinks()[index - 1])
+                                updateScreen()
+                                print('Complete')
+                            else:
+                                activeChain.getLinks().append(lastLink)
+                    print(event.pos)
+                    clear = True
+                    for point in pointList:
+                        if point.checkCollision(event.pos) == 1:
+                            for chain in activeChain.getLinks():
+                                if chain.checkCollision(event.pos) == 1:
+                                    clear = False
+                                    break
+                            if clear is True:
+                                activeChain.addLink(point.getPos())
+                                updateScreen()
+                    
             elif event.type == MOUSEBUTTONDOWN:		
                 mousex, mousey = event.pos
                 for circle in cList:
-                    if circle.checkCollision(mousex, mousey) is True:
-                        print('TRUE')
+                    if circle.checkCollision(event.pos) is True:
+                        for chain in chainList:
+                            if chain.getStart() == circle or chain.getEnd() == circle:
+                                activeChain = chain
+                                print("Active Chain is set.")
+                                activeChain.setActive(True)
+                                activeChain.setCurrentLink(circle)
+                                if chain.isLocked():
+                                    chain.setLock(False)
+                        if activeChain == None:
+                            chain = Chain(circle)
+                            print("Active Chain is set.")
+                            activeChain = chain
+                            activeChain.setActive(True)
+                     
                 mouseClicked = True
             elif event.type == MOUSEBUTTONUP:
-                print('Chain Placeholder')
-            elif event.type == KEYUP and event.key == K_j:
-                cheatFlag = True
-            elif event.type == KEYDOWN:
-                if (event.key == K_LEFT or event.key == K_a) and direction != RIGHT:
-                    direction = LEFT
-                elif (event.key == K_RIGHT or event.key == K_d) and direction != LEFT:
-                    direction = RIGHT
-                elif (event.key == K_UP or event.key == K_w) and direction != DOWN:
-                    direction = UP
-                elif (event.key == K_DOWN or event.key == K_s) and direction != UP:
-                    direction = DOWN
-                elif event.key == K_ESCAPE:
-                    terminate()
+                if activeChain is not None and activeChain.start.isPaired() is False:
+                    activeChain.setActive(False)
+                    activeChain = None
+                    updateScreen()
+##            elif event.type == KEYUP and event.key == K_j:
+##                cheatFlag = True
+##            elif event.type == KEYDOWN:
+##                if (event.key == K_LEFT or event.key == K_a) and direction != RIGHT:
+##                    direction = LEFT
+##                elif (event.key == K_RIGHT or event.key == K_d) and direction != LEFT:
+##                    direction = RIGHT
+##                elif (event.key == K_UP or event.key == K_w) and direction != DOWN:
+##                    direction = UP
+##                elif (event.key == K_DOWN or event.key == K_s) and direction != UP:
+##                    direction = DOWN
+##                elif event.key == K_ESCAPE:
+##                    terminate()
 
 ##        # check if the worm has hit itself or the edge
 ##        if wormCoords[HEAD]['x'] == -1 or wormCoords[HEAD]['x'] == CELLWIDTH or wormCoords[HEAD]['y'] == -1 or wormCoords[HEAD]['y'] == CELLHEIGHT:
@@ -121,16 +157,36 @@ def runGame():
 ##        elif direction == RIGHT:
 ##            newHead = {'x': wormCoords[HEAD]['x'] + 1, 'y': wormCoords[HEAD]['y']}
 ##        wormCoords.insert(0, newHead)
-        DISPLAYSURF.blit(bgimg, (0, 0))
-        drawCircles()
-        drawWalls()
-        drawGrid()
+        #DISPLAYSURF.blit(bgimg, (0, 0))
+        #drawCircles()
+        #drawGrid()
         #drawWorm(wormCoords)
         #drawApple(apple)
         #drawScore(len(wormCoords) - 3)
-        pygame.display.update()
+        #pygame.display.update()
+        updateScreen()
         FPSCLOCK.tick(FPS)
 
+def drawChains():
+    global chainList
+
+    if activeChain is not None:
+        for link in activeChain.getLinks():
+            pygame.draw.circle(DISPLAYSURF, link.getColor(), link.getPos(), int(link.getRadius()), 0)
+        
+    for chain in chainList:
+        if chain.isLocked():
+            for link in chains.getLinks():
+                pygame.draw.circle(DISPLAYSURF, link.getColor(), link.getPos(), int(link.getRadius()), 0)
+
+def updateScreen():
+    DISPLAYSURF.blit(bgimg, (0, 0))
+    drawCircles()
+    #drawGrid()
+    drawPoints()
+    drawChains()
+    pygame.display.update()
+    
 def drawPressKeyMsg():
     pressKeySurf = BASICFONT.render('Press a key to play.', True, DARKGRAY)
     pressKeyRect = pressKeySurf.get_rect()
@@ -235,13 +291,44 @@ def drawApple(coord):
     appleRect = pygame.Rect(x, y, CELLSIZE, CELLSIZE)
     pygame.draw.rect(DISPLAYSURF, RED, appleRect)
 
-
-def drawGrid():
+def drawGrid():    
     for x in range(0, WINDOWWIDTH, CELLSIZE): # draw vertical lines
         pygame.draw.line(DISPLAYSURF, DARKGRAY, (x, 0), (x, WINDOWHEIGHT))
     for y in range(0, WINDOWHEIGHT, CELLSIZE): # draw horizontal lines
         pygame.draw.line(DISPLAYSURF, DARKGRAY, (0, y), (WINDOWWIDTH, y))
 
+def findPoints():
+    global coordinates
+    xIntersects = []
+    yIntersects = []
+    
+    for x in range(int((CELLSIZE + (CELLSIZE / 2))), int((WINDOWWIDTH - ((CELLSIZE / 2)))), int((CELLSIZE / 2))):
+        xIntersects.append(x)
+    for y in range(int((CELLSIZE + (CELLSIZE / 2))), int((WINDOWHEIGHT - ((CELLSIZE / 2)))), int((CELLSIZE / 2))):
+        yIntersects.append(y)
+    for x in xIntersects:
+        for y in yIntersects:
+            coordinates.append((x, y))
+            
+def drawPoints():
+    global coordinates
+    
+    for coords in coordinates:
+        valid = True
+        for wall in wList:
+            if wall.checkCollision(coords) == 1:
+                valid = False
+                break
+        if valid is True:
+            for circle in cList:
+                if circle.checkCollision(coords) == 1:
+                    valid = False
+                    break
+        if valid is True:
+            point = Circle(DARKGRAY, coords, 5)
+            pygame.draw.circle(DISPLAYSURF, point.getColor(), point.getPos(), point.getRadius(), 0)
+            pointList.append(point)
+                
 def checkWin():
     for c in cList:
         if c.isPaired() is False:
@@ -440,8 +527,8 @@ def drawWalls():
 
     wList = [wall0, wall1, wall2, wall3, wall4, wall5, wall6, wall7, wall8, wall9, wall10, wall11, wall12, wall13, wall14, wall15, wall16, wall17, wall18]
 
-    for wall in wList:
-        wall.drawWalls()
+    #for wall in wList:
+    #    wall.drawWalls()
     
 class Circle:
     
@@ -451,7 +538,6 @@ class Circle:
         self.color = color
         self.connected = False
         self.hitbox = None
-        self.chain = []
         self.pair = None
         self.paired = False
 
@@ -496,9 +582,9 @@ class Circle:
         else:
             return False
         
-    def checkCollision(self, mousex, mousey):
-        x = mousex
-        y = mousey
+    def checkCollision(self, pos):
+        x = pos[0]
+        y = pos[1]
 
         sqx = (x - self.pos[0])**2
         sqy = (y - self.pos[1])**2
@@ -512,6 +598,9 @@ class Wall:
     
     def __init__(self, rList):
         self.rectList = rList
+
+    def getRectList(self):
+        return self.rectList
 
     def drawWalls(self):
         for rect in self.rectList:
@@ -530,20 +619,51 @@ class Chain:
         self.locked = False
         self.end = None
         self.links = []
+        self.currentLink = start
+        self.active = False
+        self.previousLink = None
 
+    def setActive(self, boolean):
+        self.active = boolean
+
+    def isActive(self):
+        return self.active
+    
+    def setLock(self, boolean):
+        self.locked = boolean
+
+    def isLocked(self):
+        return self.locked
+
+    def getLinks(self):
+        return self.links
+
+    def getStart(self):
+        return self.start
+
+    def setEnd(self, circle):
+        self.end = circle
+
+    def getEnd(self):
+        return self.end
+
+    def setCurrentLink(self, circle):
+        self.currentLink = circle
+
+    def getCurrentLink(self):
+        return self.currentLink
+
+    def setPreviousLink(self, circle):
+        self.previousLink = circle
+
+    def getPreviousLink(self):
+        return self.previousLink
+    
     def addLink(self, pos):
-        for wall in wList:
-            if wall.checkCollision(pos) == 1:
-                return
-        for circle in cList:
-            if circle.checkCollision(pos) == 1:
-               if self.checkMatch(circle) == 1:
-                   
-                
-        if pos[0] % 20 == 0 and pos[1] % 20 == 0:
-            link = Circle(self.color, pos, self.radius)
-            self.chain.append(link)
-            pygame.draw.circle(DISPLAYSURF, link.getColor(), link.getPos(), link.getRadius())
+        print("Adding Link..")
+        link = Circle(self.start.getColor(), pos, self.start.getRadius())
+        self.links.append(link)
+        pygame.draw.circle(DISPLAYSURF, link.getColor(), link.getPos(), int(link.getRadius()), 0)
     
 if __name__ == '__main__':
     main()
