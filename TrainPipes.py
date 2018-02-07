@@ -33,7 +33,7 @@ RIGHT = 'right'
 
 HEAD = 0 # syntactic sugar: index of the worm's head
 
-bg = "TrainPipes.png"
+bg = "TrainPipes2.png"
 bgimg = pygame.image.load(bg)
 wList = None
 cList = []
@@ -51,7 +51,9 @@ def main():
     BASICFONT = pygame.font.Font('freesansbold.ttf', 18)
     pygame.display.set_caption('TrainPipes')
     drawWalls()
+    drawCircles()
     findPoints()
+    drawPoints()
     updateScreen()
     #showStartScreen()
     while True:
@@ -70,16 +72,27 @@ def runGame():
             elif event.type == MOUSEMOTION and pygame.mouse.get_pressed()[0] == 1:
                 mousex, mousey = event.pos
                 if activeChain is not None:
+                    for circle in cList:
+                        if circle.getID() is not activeChain.start.getID() and circle.checkCollision(event.pos) == 1:
+                            if activeChain.checkPair(circle) is True:
+                                chainList.append(activeChain)
+                                print(chainList.index(activeChain))
                     if activeChain.getPreviousLink() is not None:
                         if activeChain.getPreviousLink().checkCollision(event.pos) == 1:
-                            lastLink = activeChain.getLinks().pop()
+                            try:
+                                if len(activeChain.getLinks() >= 1):
+                                    lastLink = activeChain.getLinks().pop()
+                            except IndexError:
+                                break
                             if lastLink is activeChain.getCurrentLink():
                                 print('Removing Current Link...')
                                 activeChain.setCurrentLink(activeChain.getPreviousLink())
-                                index = activeChain.getLinks().index(activeChain.getCurrentLink())
-                                if (index - 1) >= 0:
+                                try:
+                                    index = activeChain.getLinks().index(activeChain.getCurrentLink())
                                     activeChain.setPreviousLink(activeChain.getLinks()[index - 1])
-                                updateScreen()
+                                except ValueError:
+                                    break
+                                #updateScreen()
                                 print('Complete')
                             else:
                                 activeChain.getLinks().append(lastLink)
@@ -87,27 +100,38 @@ def runGame():
                     clear = True
                     for point in pointList:
                         if point.checkCollision(event.pos) == 1:
-                            for chain in activeChain.getLinks():
-                                if chain.checkCollision(event.pos) == 1:
+                            for link in activeChain.getLinks():
+                                if link.checkCollision(event.pos) == 1:
                                     clear = False
                                     break
+                            if activeChain.getPreviousLink() is None and clear is True:
+                                if checkDistance(activeChain.start, event.pos) is False:
+                                    clear = False
+                            elif clear is True:
+                                if checkDistance(activeChain.getCurrentLink(), event.pos) is False:
+                                    clear = False
+                            if clear is True:
+                                for chain in chainList:
+                                    for circle in chain.getLinks():
+                                        if circle.checkCollision(event.pos) == 1:
+                                            clear = False
                             if clear is True:
                                 activeChain.addLink(point.getPos())
-                                updateScreen()
                     
             elif event.type == MOUSEBUTTONDOWN:		
                 mousex, mousey = event.pos
+                deleted = False
                 for circle in cList:
                     if circle.checkCollision(event.pos) is True:
                         for chain in chainList:
-                            if chain.getStart() == circle or chain.getEnd() == circle:
-                                activeChain = chain
-                                print("Active Chain is set.")
-                                activeChain.setActive(True)
-                                activeChain.setCurrentLink(circle)
-                                if chain.isLocked():
-                                    chain.setLock(False)
-                        if activeChain == None:
+                            if chain.getStart().getID() == circle.getID() or chain.getEnd().getID() == circle.getID():
+                                chainList.remove(chain)
+                                for link in chain.getLinks():
+                                    del link
+                                del chain
+                                deleted = True
+                                activeChain = None
+                        if activeChain == None and not deleted:
                             chain = Chain(circle)
                             print("Active Chain is set.")
                             activeChain = chain
@@ -117,8 +141,11 @@ def runGame():
             elif event.type == MOUSEBUTTONUP:
                 if activeChain is not None and activeChain.start.isPaired() is False:
                     activeChain.setActive(False)
+                    for link in activeChain.getLinks():
+                        del link
+                    del activeChain
                     activeChain = None
-                    updateScreen()
+                    #updateScreen()
 ##            elif event.type == KEYUP and event.key == K_j:
 ##                cheatFlag = True
 ##            elif event.type == KEYDOWN:
@@ -167,6 +194,21 @@ def runGame():
         updateScreen()
         FPSCLOCK.tick(FPS)
 
+def checkDistance(circle0, pos):
+    x0 = circle0.getX()
+    y0 = circle0.getY()
+    x1 = pos[0]
+    y1 = pos[1]
+
+    adjacentX = x0 - x1
+    adjacentY = y0 - y1
+    sqx = (x1 - x0)**2
+    sqy = (y1 - y0)**2
+
+    if math.sqrt(sqx + sqy) <= 57 or (abs(adjacentX) <= CELLSIZE and abs(adjacentY) == CELLSIZE):
+        return True
+    return False
+
 def drawChains():
     global chainList
 
@@ -176,14 +218,11 @@ def drawChains():
         
     for chain in chainList:
         if chain.isLocked():
-            for link in chains.getLinks():
+            for link in chain.getLinks():
                 pygame.draw.circle(DISPLAYSURF, link.getColor(), link.getPos(), int(link.getRadius()), 0)
 
 def updateScreen():
     DISPLAYSURF.blit(bgimg, (0, 0))
-    drawCircles()
-    #drawGrid()
-    drawPoints()
     drawChains()
     pygame.display.update()
     
@@ -302,9 +341,9 @@ def findPoints():
     xIntersects = []
     yIntersects = []
     
-    for x in range(int((CELLSIZE + (CELLSIZE / 2))), int((WINDOWWIDTH - ((CELLSIZE / 2)))), int((CELLSIZE / 2))):
+    for x in range(int(CELLSIZE), int(WINDOWWIDTH), int(CELLSIZE)):
         xIntersects.append(x)
-    for y in range(int((CELLSIZE + (CELLSIZE / 2))), int((WINDOWHEIGHT - ((CELLSIZE / 2)))), int((CELLSIZE / 2))):
+    for y in range(int(CELLSIZE), int(WINDOWHEIGHT), int(CELLSIZE)):
         yIntersects.append(y)
     for x in xIntersects:
         for y in yIntersects:
@@ -325,8 +364,8 @@ def drawPoints():
                     valid = False
                     break
         if valid is True:
-            point = Circle(DARKGRAY, coords, 5)
-            pygame.draw.circle(DISPLAYSURF, point.getColor(), point.getPos(), point.getRadius(), 0)
+            point = Circle(DARKGRAY, coords, 16)
+            #pygame.draw.circle(DISPLAYSURF, point.getColor(), point.getPos(), point.getRadius(), 0)
             pointList.append(point)
                 
 def checkWin():
@@ -340,25 +379,33 @@ def drawCircles():
     global cList
 
     rad = 16
-    blue0 = Circle(BLUE, (int((3.5 * CELLSIZE)), int((1.5 * CELLSIZE))), rad)
-    blue1 = Circle(BLUE, (int((15 * CELLSIZE)), int((13.5 * CELLSIZE))), rad)
-    blue0.setPair(blue1)
-    blue1.setPair(blue0)
+    blue0 = Circle(BLUE, (int((1 * CELLSIZE)), int((1 * CELLSIZE))), rad)
+    blue1 = Circle(BLUE, (int((15 * CELLSIZE)), int((13 * CELLSIZE))), rad)
+    blue0.setID(0)
+    blue1.setID(1)
+    blue0.setPair(blue1.getID())
+    blue1.setPair(blue0.getID())
 
-    green0 = Circle(GREEN, (int((6.5 * CELLSIZE)), int((5 * CELLSIZE))), rad)
-    green1 = Circle(GREEN, (int((10 * CELLSIZE)), int((18.5 * CELLSIZE))), rad)
-    green0.setPair(green1)
-    green1.setPair(green0)
+    green0 = Circle(GREEN, (int((7 * CELLSIZE)), int((5 * CELLSIZE))), rad)
+    green1 = Circle(GREEN, (int((10 * CELLSIZE)), int((19 * CELLSIZE))), rad)
+    green0.setID(2)
+    green1.setID(3)
+    green0.setPair(green1.getID())
+    green1.setPair(green0.getID())
 
     red0 = Circle(RED, (int((13 * CELLSIZE)), int((5 * CELLSIZE))), rad)
     red1 = Circle(RED, (int((5 * CELLSIZE)), int((15 * CELLSIZE))), rad)
-    red0.setPair(red1)
-    red1.setPair(red0)
+    red0.setID(4)
+    red1.setID(5)
+    red0.setPair(red1.getID())
+    red1.setPair(red0.getID())
 
     orange0 = Circle(ORANGE, (int((12 * CELLSIZE)), int((9 * CELLSIZE))), rad)
-    orange1 = Circle(ORANGE, (int((18.5 * CELLSIZE)), int((5 * CELLSIZE))), rad)
-    orange0.setPair(orange1)
-    orange1.setPair(orange0)
+    orange1 = Circle(ORANGE, (int((19 * CELLSIZE)), int((5 * CELLSIZE))), rad)
+    orange0.setID(6)
+    orange1.setID(7)
+    orange0.setPair(orange1.getID())
+    orange1.setPair(orange0.getID())
 
     cList = [blue0, blue1, green0, green1, red0, red1, orange0, orange1]
     
@@ -371,85 +418,93 @@ def drawWalls():
     global wList
 
     #Outer Wall
-    Rect0 = Rect(int((0 * CELLSIZE)), int((0 * CELLSIZE)), int((20 * CELLSIZE)), int((1 * CELLSIZE)))
-    Rect1 = Rect(int((0 * CELLSIZE)), int((1 * CELLSIZE)), int((1 * CELLSIZE)), int((19 * CELLSIZE)))
-    Rect2 = Rect(int((1 * CELLSIZE)), int((19 * CELLSIZE)), int((19 * CELLSIZE)), int((1 * CELLSIZE)))
-    Rect3 = Rect(int((19 * CELLSIZE)), int((1* CELLSIZE)), int((1 * CELLSIZE)), int((18 * CELLSIZE)))
+    Rect0 = Rect(int((0 * CELLSIZE)), int((0 * CELLSIZE)), int((20 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect1 = Rect(int((0 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((19 * CELLSIZE)))
+    Rect2 = Rect(int((0 * CELLSIZE)), int((19.5 * CELLSIZE)), int((20 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect3 = Rect(int((19.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((19 * CELLSIZE)))
     rList = [Rect0, Rect1, Rect2, Rect3]
 
     wall0 = Wall(rList)
 
     #Top Right Side Quadrilateral
-    Rect0 = Rect(int((5 * CELLSIZE)), int((2 * CELLSIZE)), int((4.5 * CELLSIZE)), int((2.5 * CELLSIZE)))
-    Rect1 = Rect(int((3 * CELLSIZE)), int((2 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect2 = Rect(int((3.5 * CELLSIZE)), int((2.5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect3 = Rect(int((4 * CELLSIZE)), int((3 * CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect4 = Rect(int((4.5 * CELLSIZE)), int((3.5* CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    rList = [Rect0, Rect1, Rect2, Rect3, Rect4]
+    Rect0 = Rect(int((5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((4.6 * CELLSIZE)), int((3.1 * CELLSIZE)))
+    Rect1 = Rect(int((2.5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((2.5 * CELLSIZE)), int((0.6 * CELLSIZE)))
+    Rect2 = Rect(int((3 * CELLSIZE)), int((2 * CELLSIZE)), int((2 * CELLSIZE)), int((0.6 * CELLSIZE)))
+    Rect3 = Rect(int((3.5 * CELLSIZE)), int((2.5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.6 * CELLSIZE)))
+    Rect4 = Rect(int((4 * CELLSIZE)), int((3 * CELLSIZE)), int((1 * CELLSIZE)), int((0.6 * CELLSIZE)))
+    Rect5 = Rect(int((4.5 * CELLSIZE)), int((3.5* CELLSIZE)), int((0.5 * CELLSIZE)), int((0.6 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3, Rect4, Rect5]
 
     wall1 = Wall(rList)
-
-    Rect0 = Rect(int((10.5 * CELLSIZE)), int((2 * CELLSIZE)), int((4.5 * CELLSIZE)), int((2.5 * CELLSIZE)))
-    Rect1 = Rect(int((15 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)), int((2 * CELLSIZE)))
-    Rect2 = Rect(int((15.5 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1.5 * CELLSIZE)))
-    Rect3 = Rect(int((16 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1 * CELLSIZE)))
-    Rect4 = Rect(int((16.5 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    rList = [Rect0, Rect1, Rect2, Rect3, Rect4]
+#
+    Rect0 = Rect(int((10.5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((4.6 * CELLSIZE)), int((3.1 * CELLSIZE)))
+    Rect1 = Rect(int((15 * CELLSIZE)), int((1.5 * CELLSIZE)), int((2.6 * CELLSIZE)), int((0.6 * CELLSIZE)))
+    Rect2 = Rect(int((15 * CELLSIZE)), int((2 * CELLSIZE)), int((0.6 * CELLSIZE)), int((2.1 * CELLSIZE)))
+    Rect3 = Rect(int((15.5 * CELLSIZE)), int((2 * CELLSIZE)), int((0.6 * CELLSIZE)), int((1.6 * CELLSIZE)))
+    Rect4 = Rect(int((16 * CELLSIZE)), int((2 * CELLSIZE)), int((0.6 * CELLSIZE)), int((1.1 * CELLSIZE)))
+    Rect5 = Rect(int((16.5 * CELLSIZE)), int((2 * CELLSIZE)), int((0.6 * CELLSIZE)), int((0.6 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3, Rect4, Rect5]
 
     wall2 = Wall(rList)
-
-    Rect0 = Rect(int((15.5 * CELLSIZE)), int((5 * CELLSIZE)), int((2.5 * CELLSIZE)), int((4.5 * CELLSIZE)))
-    Rect1 = Rect(int((16 * CELLSIZE)), int((4.5 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect2 = Rect(int((16.5 * CELLSIZE)), int((4 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect3 = Rect(int((17 * CELLSIZE)), int((3.5* CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect4 = Rect(int((17.5 * CELLSIZE)), int((3 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    rList = [Rect0, Rect1, Rect2, Rect3, Rect4]
+#
+    Rect0 = Rect(int((15.5 * CELLSIZE)), int((5 * CELLSIZE)), int((3.1 * CELLSIZE)), int((4.6 * CELLSIZE)))
+    Rect1 = Rect(int((18 * CELLSIZE)), int((2.5 * CELLSIZE)), int((0.6 * CELLSIZE)), int((2.5 * CELLSIZE)))
+    Rect2 = Rect(int((16 * CELLSIZE)), int((4.5 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect3 = Rect(int((16.5 * CELLSIZE)), int((4 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect4 = Rect(int((17 * CELLSIZE)), int((3.5* CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect5 = Rect(int((17.5 * CELLSIZE)), int((3 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3, Rect4, Rect5]
 
     wall3 = Wall(rList)
-
-    Rect0 = Rect(int((15.5 * CELLSIZE)), int((10.5 * CELLSIZE)), int((2.5 * CELLSIZE)), int((4.5 * CELLSIZE)))
-    Rect1 = Rect(int((16 * CELLSIZE)), int((15 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect2 = Rect(int((16.5 * CELLSIZE)), int((15.5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect3 = Rect(int((17 * CELLSIZE)), int((16 * CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect4 = Rect(int((17.5 * CELLSIZE)), int((16.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    rList = [Rect0, Rect1, Rect2, Rect3, Rect4]
+#
+    Rect0 = Rect(int((15.5 * CELLSIZE)), int((10.5 * CELLSIZE)), int((3.1 * CELLSIZE)), int((4.5 * CELLSIZE)))
+    Rect1 = Rect(int((18 * CELLSIZE)), int((15 * CELLSIZE)), int((0.6 * CELLSIZE)), int((2.6 * CELLSIZE)))
+    Rect2 = Rect(int((16 * CELLSIZE)), int((15 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect3 = Rect(int((16.5 * CELLSIZE)), int((15.5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect4 = Rect(int((17 * CELLSIZE)), int((16 * CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect5 = Rect(int((17.5 * CELLSIZE)), int((16.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3, Rect4, Rect5]
 
     wall4 = Wall(rList)
-
-    Rect0 = Rect(int((10.5 * CELLSIZE)), int((15.5 * CELLSIZE)), int((4.5 * CELLSIZE)), int((2.5 * CELLSIZE)))
-    Rect1 = Rect(int((15 * CELLSIZE)), int((16 * CELLSIZE)), int((0.5 * CELLSIZE)), int((2 * CELLSIZE)))
-    Rect2 = Rect(int((15.5 * CELLSIZE)), int((16.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1.5 * CELLSIZE)))
-    Rect3 = Rect(int((16 * CELLSIZE)), int((17 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1 * CELLSIZE)))
-    Rect4 = Rect(int((16.5 * CELLSIZE)), int((17.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    rList = [Rect0, Rect1, Rect2, Rect3, Rect4]
+#
+    Rect0 = Rect(int((10.5 * CELLSIZE)), int((15.5 * CELLSIZE)), int((4.5 * CELLSIZE)), int((3.1 * CELLSIZE)))
+    Rect1 = Rect(int((15 * CELLSIZE)), int((18 * CELLSIZE)), int((2.6 * CELLSIZE)), int((0.6 * CELLSIZE)))
+    Rect2 = Rect(int((15 * CELLSIZE)), int((16 * CELLSIZE)), int((0.5 * CELLSIZE)), int((2 * CELLSIZE)))
+    Rect3 = Rect(int((15.5 * CELLSIZE)), int((16.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1.5 * CELLSIZE)))
+    Rect4 = Rect(int((16 * CELLSIZE)), int((17 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1 * CELLSIZE)))
+    Rect5 = Rect(int((16.5 * CELLSIZE)), int((17.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3, Rect4, Rect5]
 
     wall5 = Wall(rList)
-
-    Rect0 = Rect(int((5 * CELLSIZE)), int((15.5 * CELLSIZE)), int((4.5 * CELLSIZE)), int((2.5 * CELLSIZE)))
-    Rect1 = Rect(int((3 * CELLSIZE)), int((17.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect2 = Rect(int((3.5 * CELLSIZE)), int((17 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1 * CELLSIZE)))
-    Rect3 = Rect(int((4 * CELLSIZE)), int((16.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1.5 * CELLSIZE)))
-    Rect4 = Rect(int((4.5 * CELLSIZE)), int((16 * CELLSIZE)), int((0.5 * CELLSIZE)), int((2 * CELLSIZE)))
-    rList = [Rect0, Rect1, Rect2, Rect3, Rect4]
+#
+    Rect0 = Rect(int((5 * CELLSIZE)), int((15.5 * CELLSIZE)), int((4.6 * CELLSIZE)), int((3.1 * CELLSIZE)))
+    Rect1 = Rect(int((2.5 * CELLSIZE)), int((18 * CELLSIZE)), int((2.5 * CELLSIZE)), int((0.6 * CELLSIZE)))
+    Rect2 = Rect(int((3 * CELLSIZE)), int((17.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect3 = Rect(int((3.5 * CELLSIZE)), int((17 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1 * CELLSIZE)))
+    Rect4 = Rect(int((4 * CELLSIZE)), int((16.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1.5 * CELLSIZE)))
+    Rect5 = Rect(int((4.5 * CELLSIZE)), int((16 * CELLSIZE)), int((0.5 * CELLSIZE)), int((2 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3, Rect4, Rect5]
 
     wall6 = Wall(rList)
-    
-    Rect0 = Rect(int((2 * CELLSIZE)), int((10.5 * CELLSIZE)), int((2.5 * CELLSIZE)), int((4.5 * CELLSIZE)))
-    Rect1 = Rect(int((2 * CELLSIZE)), int((15 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect2 = Rect(int((2 * CELLSIZE)), int((15.5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect3 = Rect(int((2 * CELLSIZE)), int((16 * CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect4 = Rect(int((2 * CELLSIZE)), int((16.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    rList = [Rect0, Rect1, Rect2, Rect3, Rect4]
+#    
+    Rect0 = Rect(int((1.5 * CELLSIZE)), int((10.5 * CELLSIZE)), int((3.1 * CELLSIZE)), int((4.6 * CELLSIZE)))
+    Rect1 = Rect(int((1.5 * CELLSIZE)), int((15 * CELLSIZE)), int((0.6 * CELLSIZE)), int((2.6 * CELLSIZE)))
+    Rect2 = Rect(int((2 * CELLSIZE)), int((15 * CELLSIZE)), int((2.1 * CELLSIZE)), int((0.6 * CELLSIZE)))
+    Rect3 = Rect(int((2 * CELLSIZE)), int((15.5 * CELLSIZE)), int((1.6 * CELLSIZE)), int((0.6 * CELLSIZE)))
+    Rect4 = Rect(int((2 * CELLSIZE)), int((16 * CELLSIZE)), int((1.1 * CELLSIZE)), int((0.6 * CELLSIZE)))
+    Rect5 = Rect(int((2 * CELLSIZE)), int((16.5 * CELLSIZE)), int((0.6 * CELLSIZE)), int((0.6 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3, Rect4, Rect5]
 
     wall7 = Wall(rList)
 
     #Top Left Side Quadrilateral
-    Rect0 = Rect(int((2 * CELLSIZE)), int((5 * CELLSIZE)), int((2.5 * CELLSIZE)), int((4.5 * CELLSIZE)))
-    Rect1 = Rect(int((2 * CELLSIZE)), int((4.5 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect2 = Rect(int((2 * CELLSIZE)), int((4 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect3 = Rect(int((2 * CELLSIZE)), int((3.5 * CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect4 = Rect(int((2 * CELLSIZE)), int((3 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    rList = [Rect0, Rect1, Rect2, Rect3, Rect4]
+    Rect0 = Rect(int((1.5 * CELLSIZE)), int((5 * CELLSIZE)), int((3 * CELLSIZE)), int((4.5 * CELLSIZE)))
+    Rect1 = Rect(int((1.5 * CELLSIZE)), int((2.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((2.5 * CELLSIZE)))
+    Rect2 = Rect(int((2 * CELLSIZE)), int((4.5 * CELLSIZE)), int((2 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect3 = Rect(int((2 * CELLSIZE)), int((4 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect4 = Rect(int((2 * CELLSIZE)), int((3.5 * CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect5 = Rect(int((2 * CELLSIZE)), int((3 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    rList = [Rect0, Rect1, Rect2, Rect3, Rect4, Rect5]
 
     wall8 = Wall(rList)
 
@@ -463,10 +518,10 @@ def drawWalls():
 
     wall9 = Wall(rList)
 
-    Rect0 = Rect(int((10.5 * CELLSIZE)), int((5.5 * CELLSIZE)), int((1.5 * CELLSIZE)), int((2 * CELLSIZE)))
-    Rect1 = Rect(int((12 * CELLSIZE)), int((5.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1.5 * CELLSIZE)))
-    Rect2 = Rect(int((12.5 * CELLSIZE)), int((5.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((1 * CELLSIZE)))
-    Rect3 = Rect(int((13 * CELLSIZE)), int((5.5 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect0 = Rect(int((10.5 * CELLSIZE)), int((5.5 * CELLSIZE)), int((1.6 * CELLSIZE)), int((2 * CELLSIZE)))
+    Rect1 = Rect(int((12 * CELLSIZE)), int((5.5 * CELLSIZE)), int((0.6 * CELLSIZE)), int((1.5 * CELLSIZE)))
+    Rect2 = Rect(int((12.5 * CELLSIZE)), int((5.5 * CELLSIZE)), int((0.6 * CELLSIZE)), int((1 * CELLSIZE)))
+    Rect3 = Rect(int((13 * CELLSIZE)), int((5.5 * CELLSIZE)), int((0.6 * CELLSIZE)), int((0.5 * CELLSIZE)))
     rList = [Rect0, Rect1, Rect2, Rect3]
 
     wall10 = Wall(rList)
@@ -493,10 +548,10 @@ def drawWalls():
     
     wall13 = Wall(rList)
 
-    Rect0 = Rect(int((5.5 * CELLSIZE)), int((10.5 * CELLSIZE)), int((2 * CELLSIZE)), int((1.5 * CELLSIZE)))
-    Rect1 = Rect(int((5.5 * CELLSIZE)), int((12 * CELLSIZE)), int((1.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect2 = Rect(int((5.5 * CELLSIZE)), int((12.5 * CELLSIZE)), int((1 * CELLSIZE)), int((0.5 * CELLSIZE)))
-    Rect3 = Rect(int((5.5 * CELLSIZE)), int((13 * CELLSIZE)), int((0.5 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect0 = Rect(int((5.5 * CELLSIZE)), int((10.5 * CELLSIZE)), int((2.1 * CELLSIZE)), int((1.5 * CELLSIZE)))
+    Rect1 = Rect(int((5.5 * CELLSIZE)), int((12 * CELLSIZE)), int((1.6 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect2 = Rect(int((5.5 * CELLSIZE)), int((12.5 * CELLSIZE)), int((1.1 * CELLSIZE)), int((0.5 * CELLSIZE)))
+    Rect3 = Rect(int((5.5 * CELLSIZE)), int((13 * CELLSIZE)), int((0.6 * CELLSIZE)), int((0.5 * CELLSIZE)))
     rList = [Rect0, Rect1, Rect2, Rect3]
 
     wall14 = Wall(rList)
@@ -527,8 +582,8 @@ def drawWalls():
 
     wList = [wall0, wall1, wall2, wall3, wall4, wall5, wall6, wall7, wall8, wall9, wall10, wall11, wall12, wall13, wall14, wall15, wall16, wall17, wall18]
 
-    #for wall in wList:
-    #    wall.drawWalls()
+    for wall in wList:
+        wall.drawWalls()
     
 class Circle:
     
@@ -540,15 +595,22 @@ class Circle:
         self.hitbox = None
         self.pair = None
         self.paired = False
+        self.ID = None
 
     def setPaired(self, boolean):
         self.paired = boolean
 
     def isPaired(self):
         return self.paired
+
+    def setID(self, number):
+        self.ID = number
+
+    def getID(self):
+        return self.ID
     
-    def setPair(self, circle):
-        self.pair = circle
+    def setPair(self, ID):
+        self.pair = ID
 
     def getPair(self):
         return self.pair
@@ -663,7 +725,17 @@ class Chain:
         print("Adding Link..")
         link = Circle(self.start.getColor(), pos, self.start.getRadius())
         self.links.append(link)
+        self.setPreviousLink(self.getCurrentLink())
+        self.setCurrentLink(link)
         pygame.draw.circle(DISPLAYSURF, link.getColor(), link.getPos(), int(link.getRadius()), 0)
+
+    def checkPair(self, circle):
+        if self.start.getPair() is circle.getID():
+            print('Valid Pair')
+            self.end = circle
+            self.locked = True
+            return True
+        return False
     
 if __name__ == '__main__':
     main()
