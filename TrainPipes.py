@@ -47,7 +47,7 @@ def main():
 
     pygame.init()
     FPSCLOCK = pygame.time.Clock()
-    DISPLAYSURF = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
+    DISPLAYSURF = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT), pygame.FULLSCREEN)
     BASICFONT = pygame.font.Font('freesansbold.ttf', 18)
     pygame.display.set_caption('TrainPipes')
     drawWalls()
@@ -58,7 +58,7 @@ def main():
     #showStartScreen()
     while True:
         runGame()
-        #showGameOverScreen()
+        showGameOverScreen()
 
 
 def runGame():
@@ -76,11 +76,10 @@ def runGame():
                         if circle.getID() is not activeChain.start.getID() and circle.checkCollision(event.pos) == 1:
                             if activeChain.checkPair(circle) is True:
                                 chainList.append(activeChain)
-                                print(chainList.index(activeChain))
                     if activeChain.getPreviousLink() is not None:
                         if activeChain.getPreviousLink().checkCollision(event.pos) == 1:
                             try:
-                                if len(activeChain.getLinks() >= 1):
+                                if len(activeChain.getLinks()) >= 1:
                                     lastLink = activeChain.getLinks().pop()
                             except IndexError:
                                 break
@@ -125,6 +124,8 @@ def runGame():
                     if circle.checkCollision(event.pos) is True:
                         for chain in chainList:
                             if chain.getStart().getID() == circle.getID() or chain.getEnd().getID() == circle.getID():
+                                chain.getStart().setPaired(False)
+                                chain.getEnd().setPaired(False)
                                 chainList.remove(chain)
                                 for link in chain.getLinks():
                                     del link
@@ -139,15 +140,19 @@ def runGame():
                      
                 mouseClicked = True
             elif event.type == MOUSEBUTTONUP:
-                if activeChain is not None and activeChain.start.isPaired() is False:
+                if activeChain is not None:
                     activeChain.setActive(False)
                     for link in activeChain.getLinks():
                         del link
                     del activeChain
                     activeChain = None
                     #updateScreen()
-##            elif event.type == KEYUP and event.key == K_j:
-##                cheatFlag = True
+            elif event.type == KEYUP and event.key == K_j:
+                for circle in cList:
+                    if circle.getID() == 2 or circle.getID() == 3:
+                        circle.setPaired(True)
+            elif event.type == KEYUP and event.key == K_a:
+                return
 ##            elif event.type == KEYDOWN:
 ##                if (event.key == K_LEFT or event.key == K_a) and direction != RIGHT:
 ##                    direction = LEFT
@@ -191,6 +196,8 @@ def runGame():
         #drawApple(apple)
         #drawScore(len(wormCoords) - 3)
         #pygame.display.update()
+        if checkWin():
+            return
         updateScreen()
         FPSCLOCK.tick(FPS)
 
@@ -205,7 +212,7 @@ def checkDistance(circle0, pos):
     sqx = (x1 - x0)**2
     sqy = (y1 - y0)**2
 
-    if math.sqrt(sqx + sqy) <= 57 or (abs(adjacentX) <= CELLSIZE and abs(adjacentY) == CELLSIZE):
+    if math.sqrt(sqx + sqy) <= 62 or (abs(adjacentX) <= CELLSIZE and abs(adjacentY) == CELLSIZE):
         return True
     return False
 
@@ -237,12 +244,12 @@ def checkForKeyPress():
     if len(pygame.event.get(QUIT)) > 0:
         terminate()
 
-    keyUpEvents = pygame.event.get(KEYUP)
-    if len(keyUpEvents) == 0:
-        return None
-    if keyUpEvents[0].key == K_ESCAPE:
-        terminate()
-    return keyUpEvents[0].key
+    for event in pygame.event.get([KEYUP, MOUSEBUTTONUP]):
+        if event.type == MOUSEBUTTONUP:
+            return True
+        elif event.type == KEYUP and event.key == K_ESCAPE:
+            terminate()
+    return False
 
 
 def showStartScreen():
@@ -285,23 +292,35 @@ def getRandomLocation():
 
 
 def showGameOverScreen():
-    gameOverFont = pygame.font.Font('freesansbold.ttf', 150)
+    global chainList
+    
+    gameOverFont = pygame.font.Font('freesansbold.ttf', 50)
+    congratsSurf = gameOverFont.render('Congratulations!', True, WHITE)
+    congratsRect = congratsSurf.get_rect()
     gameSurf = gameOverFont.render('Game', True, WHITE)
     overSurf = gameOverFont.render('Over', True, WHITE)
     gameRect = gameSurf.get_rect()
     overRect = overSurf.get_rect()
-    gameRect.midtop = (WINDOWWIDTH / 2, 10)
-    overRect.midtop = (WINDOWWIDTH / 2, gameRect.height + 10 + 25)
+    congratsRect.center = (WINDOWWIDTH / 2, WINDOWHEIGHT / 2)
+    gameRect.midtop = (WINDOWWIDTH / 2, WINDOWHEIGHT / 2)
+    overRect.midtop = (WINDOWWIDTH / 2, WINDOWHEIGHT / 2)
 
-    DISPLAYSURF.blit(gameSurf, gameRect)
-    DISPLAYSURF.blit(overSurf, overRect)
-    drawPressKeyMsg()
+    DISPLAYSURF.blit(congratsSurf, congratsRect)
+        drawPressKeyMsg()
     pygame.display.update()
     pygame.time.wait(500)
-    checkForKeyPress() # clear out any key presses in the event queue
+    #checkForKeyPress() # clear out any key presses in the event queued
 
     while True:
         if checkForKeyPress():
+            for chain in chainList:
+                for link in chain.getLinks():
+                    chain.getLinks().remove(link)
+                    del link
+                chainList.remove(chain)
+                del chain
+            del chainList
+            chainList = []
             pygame.event.get() # clear event queue
             return
 
@@ -372,8 +391,7 @@ def checkWin():
     for c in cList:
         if c.isPaired() is False:
             return False
-        else:
-            return True
+    return True
         
 def drawCircles():
     global cList
@@ -730,9 +748,16 @@ class Chain:
         pygame.draw.circle(DISPLAYSURF, link.getColor(), link.getPos(), int(link.getRadius()), 0)
 
     def checkPair(self, circle):
-        if self.start.getPair() is circle.getID():
+        validDistance = False
+        if self.previousLink is None:
+            validDistance = False
+        elif checkDistance(self.currentLink, circle.getPos()) is True:
+            validDistance = True
+        if self.start.getPair() is circle.getID() and validDistance:
             print('Valid Pair')
             self.end = circle
+            self.start.setPaired(True)
+            self.end.setPaired(True)
             self.locked = True
             return True
         return False
